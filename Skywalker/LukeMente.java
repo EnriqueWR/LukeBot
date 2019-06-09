@@ -2,7 +2,6 @@ package Skywalker;
 import java.util.ArrayList;
 import java.util.Random;
 
-
 /**
  * Feito por Enrique Wicks
  * 
@@ -13,82 +12,14 @@ import java.util.Random;
  * 
  **/
 
-
 public class LukeMente {
 	ArrayList neuronios;
 	ArrayList dados;
 	double learningRate = 0.01;
 	double respTeste;
 	
-	public static void main(String[] args) {
-		Random r = new Random();
-		
-		ArrayList dados = new ArrayList();
-		/*
-		for (int i = 0; i < 9; i++) {
-			dados.add(r.nextDouble());
-		}
-		*/
-		
-		dados.add(1.0);
-		dados.add(1.0);
-		dados.add(1.0);
-		
-		dados.add(0.0);
-		dados.add(1.0);
-		dados.add(1.0);
-		
-		dados.add(0.0);
-		dados.add(1.0);
-		dados.add(1.0);
-		
-		
-		LukeMente mente = new LukeMente(dados);
-		
-		for (int i = 0; i < 1000000; i++) {
-			mente.respTeste = 1.0;
-			double resposta = mente.activate(-2, -1);
-			
-			if (i % 10 == 0) {
-				System.out.println("Perda Alice: " + mente.getPerda(mente.respTeste, resposta));
-				System.out.println(resposta);
-			}
-			
-			mente.respTeste = 0.0;
-			resposta = mente.activate(25, 6);
-			
-			if (i % 10 == 0) {
-				System.out.println("Perda Bob: " + mente.getPerda(mente.respTeste, resposta));
-				System.out.println(resposta);
-			}
-			
-			mente.respTeste = 0.0;
-			resposta = mente.activate(17, 4);
-			
-			if (i % 10 == 0) {
-				System.out.println("Perda Charlie: " + mente.getPerda(mente.respTeste, resposta));
-				System.out.println(resposta);
-			}
-			
-			mente.respTeste = 1.0;
-			resposta = mente.activate(-15, -6);
-			
-			if (i % 10 == 0) {
-				System.out.println("Perda Diana: " + mente.getPerda(mente.respTeste, resposta));
-				System.out.println(resposta);
-				if (mente.getPerda(mente.respTeste, resposta) < 0.005) {
-					System.out.println("Pronto! " + i + " passagens.");
-					break;
-				}
-			}
-			
-		}
-		
-		
-	}
-	
 	private double getNextValue() {
-		return (double) this.dados.remove(0);
+		return Double.parseDouble(this.dados.remove(0).toString());
 	}
 	
 	private double[] getDadosNeuronio(int qtd) {
@@ -107,48 +38,133 @@ public class LukeMente {
 		 */
 		this.dados = dados;
 		
-		Neuronio n1 = new Neuronio(getDadosNeuronio(3));
-		Neuronio n2 = new Neuronio(getDadosNeuronio(3));
+		Neuronio n1 = new Neuronio(getDadosNeuronio(5));
+		Neuronio n2 = new Neuronio(getDadosNeuronio(5));
 		Neuronio n3 = new Neuronio(getDadosNeuronio(3));
+		//Neuronio n4 = new Neuronio(getDadosNeuronio(3));
+		//Neuronio n5 = new Neuronio(getDadosNeuronio(3));
 		
 		this.neuronios = new ArrayList();
 		this.neuronios.add(n1);
 		this.neuronios.add(n2);
 		this.neuronios.add(n3);
+		//this.neuronios.add(n4);
+		//this.neuronios.add(n5);
 	}
 	
-	public double activate(double parm1, double parm2) {
+	public double activate(double[] parms) {
 		Neuronio n1 = (Neuronio) this.neuronios.get(0);
 		Neuronio n2 = (Neuronio) this.neuronios.get(1);
 		Neuronio n3 = (Neuronio) this.neuronios.get(2);
+		//Neuronio n4 = (Neuronio) this.neuronios.get(3);
+		//Neuronio n5 = (Neuronio) this.neuronios.get(4);
 		
-		double[] input1 = { parm1, parm2 };
+		double[] input1 = { parms[0], parms[1], parms[2], parms[3],  };
 		double output1 = n1.activate(input1);
 		double output2 = n2.activate(input1);
 		double[] input2 = { output1, output2 }; 
-		
 		double output3 = n3.activate(input2);
-
+		return output3;
+		//double output4 = n4.activate(input2);
+		//double[] input3 = { output3, output4 }; 
+		//double output5 = n5.activate(input3);
 		
-		// Metodo de treinamento: Stochastic Gradient Descent
-		double derivadaParcial = this.learningRate * (-2 * (this.respTeste - output3));
+		//return output5;
+	}
+	
+	public void train(double[] parms, double resp) {
+		Neuronio n1 = (Neuronio) this.neuronios.get(0);
+		Neuronio n2 = (Neuronio) this.neuronios.get(1);
+		Neuronio n3 = (Neuronio) this.neuronios.get(2);
+		//Neuronio n4 = (Neuronio) this.neuronios.get(3);
+		//Neuronio n5 = (Neuronio) this.neuronios.get(4);
 		
+		double[] input1 = { parms[0], parms[1], parms[2], parms[3] };
+		double output1 = n1.activate(input1);
+		double output2 = n2.activate(input1);
+		double[] input2 = { output1, output2 }; 
+		double output3 = n3.activate(input2);
+		
+		double derivadaParcial = this.learningRate * (-2 * (resp - output3));
+		
+		// N1
 		double ajusteGeral1 = derivadaParcial * n3.pesos[0] * derivadaAprendizado(output3);
 		double pesoAux1 = derivadaAprendizado(output1);
-		double[] valoresPeso1 = { pesoAux1, pesoAux1 * parm1, pesoAux1 * parm2 };
+		double[] valoresPeso1 = { pesoAux1, pesoAux1 * parms[0], pesoAux1 * parms[1], pesoAux1 * parms[2], pesoAux1 * parms[3] };
 		n1.treinar(ajusteGeral1, valoresPeso1);
 		
+		// N2
 		double ajusteGeral2 = derivadaParcial * n3.pesos[1] * derivadaAprendizado(output3);
 		double pesoAux2 = derivadaAprendizado(output2);
-		double[] valoresPeso2 = { pesoAux2, pesoAux2 * parm1, pesoAux2 * parm2 };
+		double[] valoresPeso2 = { pesoAux2, pesoAux2 * parms[0], pesoAux2 * parms[1], pesoAux2 * parms[2], pesoAux2 * parms[3] };
 		n2.treinar(ajusteGeral2, valoresPeso2);
-		
+
+		// N3
 		double ajusteGeral3 = derivadaParcial * derivadaAprendizado(output3);
 		double pesoAux3 = derivadaAprendizado(output3);
 		double[] valoresPeso3 = { pesoAux3, pesoAux3 * output1, pesoAux3 * output2};
 		n3.treinar(ajusteGeral3, valoresPeso3);
 		
-		return output3;
+		
+		
+		
+		
+		
+		//double output4 = n4.activate(input2);
+		//double[] input3 = { output3, output4 }; 
+		//double output5 = n5.activate(input3);
+		
+		/*
+		// Metodo de treinamento: Stochastic Gradient Descent
+		double derivadaParcial = this.learningRate * (-2 * (resp - output5));
+		
+		// N1
+		double ajusteGeral1 = derivadaParcial * n3.pesos[0] * n4.pesos[0] * derivadaAprendizado(output5);
+		double pesoAux1 = derivadaAprendizado(output1);
+		double[] valoresPeso1 = { pesoAux1, pesoAux1 * parms[0], pesoAux1 * parms[1], pesoAux1 * parms[2], pesoAux1 * parms[3] };
+		n1.treinar(ajusteGeral1, valoresPeso1);
+		
+		// N2
+		double ajusteGeral2 = derivadaParcial * n3.pesos[1] * n4.pesos[1] * derivadaAprendizado(output5);
+		double pesoAux2 = derivadaAprendizado(output2);
+		double[] valoresPeso2 = { pesoAux2, pesoAux2 * parms[0], pesoAux2 * parms[1], pesoAux2 * parms[2], pesoAux2 * parms[3] };
+		n2.treinar(ajusteGeral2, valoresPeso2);
+
+		// N3
+		double ajusteGeral3 = derivadaParcial * n5.pesos[0] * derivadaAprendizado(output5);
+		double pesoAux3 = derivadaAprendizado(output3);
+		double[] valoresPeso3 = { pesoAux3, pesoAux3 * output1, pesoAux3 * output2};
+		n3.treinar(ajusteGeral3, valoresPeso3);
+		
+		// N4
+		double ajusteGeral4 = derivadaParcial * n5.pesos[1] * derivadaAprendizado(output5);
+		double pesoAux4 = derivadaAprendizado(output4);
+		double[] valoresPeso4 = { pesoAux4, pesoAux4 * output1, pesoAux4 * output2};
+		n4.treinar(ajusteGeral4, valoresPeso4);
+		
+		// N3
+		double ajusteGeral5 = derivadaParcial * derivadaAprendizado(output5);
+		double pesoAux5 = derivadaAprendizado(output5);
+		double[] valoresPeso5 = { pesoAux5, pesoAux5 * output3, pesoAux5 * output4};
+		n5.treinar(ajusteGeral5, valoresPeso5);
+		*/
+	}
+	
+	public ArrayList getPesos() {
+		ArrayList resp = new ArrayList();
+		Neuronio nAux;
+		for (int i = 0; i < this.neuronios.size(); i++) {
+			nAux = (Neuronio) this.neuronios.get(i);
+			resp.add(Double.valueOf(nAux.bias));
+			System.out.println("Neuronio: " + (i + 1));
+			System.out.println("Bias: " + nAux.bias);
+			for (int j = 0; j < nAux.pesos.length; j++) {
+				resp.add(Double.valueOf(nAux.pesos[j]));
+				System.out.println("Peso " + (j + 1) + ": " + nAux.pesos[j]);
+			}
+		}
+		
+		return resp;
 	}
 	
 	private double getPerda(double valorVerdadeiro, double valorEsperado) {
@@ -189,7 +205,7 @@ public class LukeMente {
 				this.pesos[i - 1] -= valorGeral * valoresPeso[i];
 			}
 		}
-		
+		 
 		public double activate(double[] input) {
 			if (input.length != this.pesos.length) {
 				System.out.println("N# de pesos diferente de N# input:");

@@ -13,6 +13,8 @@ public class EnemyBot extends AdvancedRobot {
 	private double constVelocity = 13;
 	private double constDistance = 1;
 	private double constAngle = 3;
+	private LukeMente mente;
+	private int trainRuns = 10000;
 
 	private volatile double bearing;
 	private volatile double distance;
@@ -30,6 +32,10 @@ public class EnemyBot extends AdvancedRobot {
 	public volatile LinkedList listaBalasHistorico;
 	public volatile LinkedList listaBalasHistoricoTomada;
 	private volatile Random gerador;
+
+	public void setMente(LukeMente mente) {
+		this.mente = mente;
+	}
 
 	public double getDistance() {
 		return distance;
@@ -116,8 +122,7 @@ public class EnemyBot extends AdvancedRobot {
 				bulletPower,
 				this.lateralVelocity,
 				this.absBearing,
-				this.balasCount,
-				this.gerador.nextInt(2) > 0
+				this.balasCount
 			);
 			// bullet.details();
 			this.balasCount++;
@@ -125,6 +130,8 @@ public class EnemyBot extends AdvancedRobot {
 		}
 		updateBullets(robot);
 
+		
+		// Update the lateralVelocity e absBearing ocorrem depois pq se espera que essa bala foi disparada no momento anterior que o Luke estava
 		this.lateralVelocity = (robot.getVelocity() * Math.sin(e.getBearingRadians())) >= 0 ? 1 : -1;
 		
 		double absBearingTemp = e.getBearingRadians() + robot.getHeadingRadians();
@@ -175,12 +182,30 @@ public class EnemyBot extends AdvancedRobot {
 		return bullet.directAngle;
 	}
 	
-	public boolean getSwitchDirection() {
-		if (listaBalas.size() > 0) {
-			Bullet bullet = (Bullet) listaBalas.getFirst();
-			return bullet.switchDirection;
+	public boolean switchAux() {
+		for (int i = 0; i < this.listaBalas.size(); i++) {
+			Bullet bullet = (Bullet) listaBalas.get(i);
+			if (!bullet.vista) {
+				return true;
+			}
 		}
 		return false;
+	}
+	
+	public Bullet getSwitchDirection(double posX, double posY) {
+		//double resp = 0.0;
+		Bullet bullet = null;
+		for (int i = 0; i < this.listaBalas.size(); i++) {
+			bullet = (Bullet) listaBalas.get(i);
+			if (!bullet.vista) {
+				double valor = this.mente.activate(bullet.getData(posX, posY));
+				bullet.valueActivation = valor;
+				bullet.vista = true;
+				//resp = valor;
+				return bullet; //resp;
+			}
+		}
+		return bullet;
 	}
 
 	public void updateBullets(AdvancedRobot robot) {
@@ -197,11 +222,11 @@ public class EnemyBot extends AdvancedRobot {
 		}
 	}
 	
-	public void bulletHit(double bulletPower, AdvancedRobot robot) {
+	public void bulletHit(HitByBulletEvent e, AdvancedRobot robot) {
 		for (int i = 0; i < listaBalas.size(); i++) {
 			Bullet bullet = (Bullet)listaBalas.get(i);
 			bullet.distanceTraveled = (robot.getTime() - bullet.time) * bullet.velocity;
-			if (bullet.power == bulletPower) {
+			if (bullet.power == e.getPower()) {
 				this.listaBalasHistoricoTomada.addLast(bullet);
 				listaBalas.remove(i);
 				break;
@@ -243,6 +268,38 @@ public class EnemyBot extends AdvancedRobot {
 	public int getHistoricoTomadaSize() {
 		return this.listaBalasHistoricoTomada.size();
 	}
+	
+	public int callTraining() {
+		int hisAux = (int) (getHistoricoSize() / 2);
+		int hisTAux = (int) (getHistoricoTomadaSize() / 2);
+		int i;
+		for (i = 0; i < this.trainRuns; i++) {
+			for (int j = 0; j < hisAux; j++) {
+				Bullet bullet = (Bullet) this.listaBalasHistorico.get(j);
+				double resp = bullet.valueActivation > 0.5 ? 1.0 : 0.0;
+				this.mente.train(bullet.getData(), resp);
+			}
+			
+			for (int j = 0; j < hisTAux; j++) {
+				Bullet bullet = (Bullet) this.listaBalasHistorico.get(j);
+				double resp = bullet.valueActivation > 0.5 ? 0.0 : 1.0;
+				this.mente.train(bullet.getData(), resp);
+			}
+			
+			for (int j = hisAux; j < getHistoricoSize(); j++) {
+				Bullet bullet = (Bullet) this.listaBalasHistorico.get(j);
+				double resp = bullet.valueActivation > 0.5 ? 1.0 : 0.0;
+				this.mente.train(bullet.getData(), resp);
+			}
+			
+			for (int j = hisTAux; j < getHistoricoTomadaSize(); j++) {
+				Bullet bullet = (Bullet) this.listaBalasHistorico.get(j);
+				double resp = bullet.valueActivation > 0.5 ? 0.0 : 1.0;
+				this.mente.train(bullet.getData(), resp);
+			}
+		}
+		return i;
+	}
 
 	public double[] getData(boolean tomada, int index) {
 		Bullet bullet = tomada ?
@@ -254,7 +311,7 @@ public class EnemyBot extends AdvancedRobot {
 			1 / (1 + Math.exp(((bullet.distanceTraveled / 100) - constDistance) * -1)),
 			bullet.direction,
 			1 / (1 + Math.exp((bullet.directAngle - constAngle) * -1)),
-			bullet.switchDirection ? 1.0 : 0.0,
+			bullet.valueActivation,
 			tomada ? 0.0 : 1.0
 		};
 		
@@ -280,10 +337,12 @@ public class EnemyBot extends AdvancedRobot {
 		double distanceTraveled;
 		int direction;
 		double directAngle;
-		boolean switchDirection;
+		boolean vista;
+		double distancia2player;
+		double valueActivation;
 		
 		public void details() {
-			System.out.println("BULLET N" + this.number + " - " + (this.switchDirection ? "SIM" : "NAO") + ":\n");
+			System.out.println("BULLET N" + this.number + " - " + (this.valueActivation > 0.5 ? "SIM" : "NAO") + ":\n");
 			System.out.println("Location: " + this.location.x + " " + this.location.y);
 			System.out.println("Tempo: " + this.time);
 			System.out.println("Forca: " + this.power);
@@ -294,7 +353,22 @@ public class EnemyBot extends AdvancedRobot {
 			System.out.println("-------------------------------------------\n");
 		}
 		
-		public Bullet(Point2D.Double location, long time, double power, int direction, double directAngle, int number, boolean switchDirection) {
+		public double[] getData(double posX, double posY) {
+			double difX = (posX - this.location.x), difY = (posY - this.location.y);
+			double distancia = Math.sqrt((difX * difX) + (difY * difY));
+			this.distancia2player = distancia;
+			double[] data = { distancia, this.velocity, this.direction, this.directAngle };
+			return data;
+		}
+		
+		public double[] getData() {
+			double[] data = { this.distancia2player, this.velocity, this.direction, this.directAngle };
+			return data;
+		}
+		
+		
+		
+		public Bullet(Point2D.Double location, long time, double power, int direction, double directAngle, int number) {
 			this.number = number;
 			this.location = location;
 			this.time = time;
@@ -303,7 +377,7 @@ public class EnemyBot extends AdvancedRobot {
 			this.distanceTraveled = bulletVelocity(power);
 			this.direction = direction;
 			this.directAngle = directAngle;
-			this.switchDirection = switchDirection;
+			this.vista = false;
 		}
 	}
 }

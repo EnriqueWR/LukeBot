@@ -23,13 +23,19 @@ public class Luke extends AdvancedRobot {
 	private String fileName = "dados.dat";
 
 	private EnemyBot enemy = new EnemyBot();
+	private LukeMente mente;
+	private int pesosCount = 13;
+	private double switchCooldown;
 
 	public void run() {
-		dados = new ArrayList();
-
+	
+		System.out.println(this.getDataDirectory());
 		// ===================
-		this.salvarDados();
+		// this.salvarDados();
+		
+		// Pega os pesos e manda para a rede neural
 		this.lerDados();
+		this.enemy.setMente(this.mente);
 		
 		// ===================
 		this.inWall = checkWall();
@@ -52,13 +58,22 @@ public class Luke extends AdvancedRobot {
 			if (getRadarTurnRemaining() <= 0) {
 				setTurnRadarRight(360);	
 			}			
-
+			
+			// this.switchCooldown -= getGunCoolingRate();
 			shoot();
 			scan();
 			execute();
 		}
 	}
 	
+	private void setRoboColors() {
+		setBodyColor(Color.WHITE);
+		setGunColor(Color.BLUE);
+		setRadarColor(Color.WHITE);
+		setBulletColor(Color.BLUE);
+		setScanColor(Color.WHITE);
+	}
+
 	public boolean checkWall() {
 		return (getX() < nearWall || getY() < nearWall
 			|| getBattleFieldWidth() - getX() < nearWall
@@ -80,8 +95,20 @@ public class Luke extends AdvancedRobot {
 		if(enemy.none() || e.getName() == enemy.getName()) {
 			enemy.update(e, this);
 			this.scanReset = 0;
-			if (enemy.getSwitchDirection()) {
-				reverseDirection();
+			if (enemy.switchAux()) {
+				Skywalker.EnemyBot.Bullet bullet = enemy.getSwitchDirection(this.getX(), this.getY());
+				//double valores = enemy.getSwitchDirection(this.getX(), this.getY());
+				
+				System.out.println("Dados de input:\n");
+				System.out.println("Distancia: " + bullet.distancia2player);
+				System.out.println("Velocidade: " + bullet.velocity);
+				System.out.println("Direcao:  " + bullet.direction);
+				System.out.println("Angulo: " + bullet.directAngle);
+				
+				System.out.println("Troca? " + (bullet.valueActivation > 0.5 ? "Sim " : "Nao ") + bullet.valueActivation);
+				if (bullet.valueActivation > 0.5) {
+					reverseDirection();
+				}
 			}
 		}
 	}
@@ -102,11 +129,11 @@ public class Luke extends AdvancedRobot {
 		
 		if (getGunHeat() <= 0) {
 			this.shootReset++;
-			System.out.println(this.shootReset);
+			// System.out.println(this.shootReset);
 			if ((Math.abs(getGunTurnRemaining()) <= this.aim) || this.shootReset > this.shootLimit) {
 				this.shootReset = 0;
 				setFire(firePower);
-				System.out.println("Set");
+				// System.out.println("Set");
 			}
 		}
 	}
@@ -132,18 +159,10 @@ public class Luke extends AdvancedRobot {
 			this.movingForward = true;
 		}
 	}
-	
-	private void setRoboColors() {
-		setBodyColor(Color.RED);
-		setGunColor(Color.WHITE);
-		setRadarColor(Color.BLACK);
-		setBulletColor(Color.GREEN);
-		setScanColor(Color.RED);
-	}
 
 	public void onHitByBullet(HitByBulletEvent e) {
 		reverseDirection();
-		this.enemy.bulletHit(e.getPower(), this);
+		this.enemy.bulletHit(e, this);
 	}
 	
 	public void onHitWall(HitWallEvent e) {
@@ -158,7 +177,8 @@ public class Luke extends AdvancedRobot {
 	
 	public void onRobotDeath(RobotDeathEvent e) {
 		// enemy.printBullets();
-		compileDados();
+		// compileDados();
+		salvarDados();
 		if (e.getName().equals(enemy.getName())) {
 			enemy.reset();
 		}
@@ -166,19 +186,23 @@ public class Luke extends AdvancedRobot {
 	
 	public void onDeath(DeathEvent e) {
 		// enemy.printBullets();
-		compileDados();
+		// compileDados();
+		salvarDados();
 	}
 	
 	// TESTE DE DADOS
 	private void compileDados() {
-		for (int i = 0; i < this.enemy.getHistoricoSize(); i++) {
-			this.dados.add(this.enemy.getData(false, i));
-		}
+		//this.dados = new ArrayList();
+		// Chama aprendizado aqui
+		//for (int i = 0; i < this.enemy.getHistoricoSize(); i++) {
+			//this.dados.add(this.enemy.getData(false, i));
+		//}
 		
-		for (int i = 0; i < this.enemy.getHistoricoTomadaSize(); i++) {
-			this.dados.add(this.enemy.getData(true, i));	
-		}
-		writeDados();
+		//for (int i = 0; i < this.enemy.getHistoricoTomadaSize(); i++) {
+			//this.dados.add(this.enemy.getData(true, i));	
+		//}
+		// writeDados();
+		salvarDados();
 	}
 	
 	private void writeDados() {
@@ -190,7 +214,6 @@ public class Luke extends AdvancedRobot {
 			}
         }
 	}
-	
 
 	// UTILIDADES
 	double normalizeBearing(double angle) {
@@ -220,15 +243,21 @@ public class Luke extends AdvancedRobot {
 	}
 	
 	void salvarDados() {
-		double roundCount = 0.1, battleCount = 0.99;
+		int roundsTrained = this.enemy.callTraining();
+		ArrayList listaPesos = mente.getPesos();
 		System.out.println(this.getDataDirectory());
+		System.out.println("Treinou por " + roundsTrained + " rounds!");
+		System.out.println("Balas evitadas: " + this.enemy.getHistoricoSize());
+		System.out.println("Balas tomadas: " + this.enemy.getHistoricoTomadaSize());
+		
 		PrintStream w = null;
 		try {
 			w = new PrintStream(new RobocodeFileOutputStream(getDataFile(this.fileName)));
 
 			// Escreve dados
-			w.println(roundCount);
-			w.println(battleCount);
+			for (int i = 0; i < listaPesos.size(); i++) {
+				w.println(listaPesos.get(i));				
+			}
 
 			if (w.checkError()) {
 				System.out.println("checkError");
@@ -246,15 +275,17 @@ public class Luke extends AdvancedRobot {
 	}
 	
 	void lerDados() {
-		double roundCount, battleCount;
+		ArrayList listaPesos = new ArrayList();
 		try {
 			BufferedReader reader = null;
 			try {
 				reader = new BufferedReader(new FileReader(getDataFile(this.fileName)));
 				
 				// Lê dados
-				roundCount = Double.parseDouble(reader.readLine());
-				battleCount = Double.parseDouble(reader.readLine());
+				for (int i = 0; i < this.pesosCount; i++) {
+					listaPesos.add(Double.valueOf(reader.readLine().toString())); // n funciona
+				}
+				
 			} finally {
 				if (reader != null) {
 					reader.close();
@@ -263,15 +294,11 @@ public class Luke extends AdvancedRobot {
 		} catch (IOException e) {
 			// Hard set em caso de erros
 			System.out.println("Erro IOException");
-			roundCount = 0;
-			battleCount = 0;
 		} catch (NumberFormatException e) {
 			// Hard set em caso de erros
 			System.out.println("Erro NumberFormatException");
-			roundCount = 0;
-			battleCount = 0;
 		}
-		System.out.println(roundCount);
-		System.out.println(battleCount);
+		
+		this.mente = new LukeMente(listaPesos);
 	}
 }
